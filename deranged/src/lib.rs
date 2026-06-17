@@ -17,7 +17,10 @@ use core::error::Error;
 use core::fmt;
 use core::hint::assert_unchecked;
 use core::num::{IntErrorKind, NonZero};
+use core::slice::SliceIndex;
 use core::str::FromStr;
+
+use paste::paste;
 
 /// A macro to define a ranged integer with an automatically computed inner type.
 ///
@@ -1173,6 +1176,64 @@ macro_rules! impl_ranged {
             pub const fn is_some(&self) -> bool {
                 const { assert!(MIN <= MAX); }
                 self.get().is_some()
+            }
+        }
+
+        paste! {
+            pub trait [<GetRanged$type>]<const MIN: $internal, const MAX: $internal, T> {
+                fn get_ranged(&self, index: $type<MIN, MAX>) -> &<usize as SliceIndex<[T]>>::Output;
+            }
+
+            pub trait [<GetRangedMut$type>]<const MIN: $internal, const MAX: $internal, T> {
+                fn get_ranged_mut(&mut self, index: $type<MIN, MAX>) -> &mut <usize as SliceIndex<[T]>>::Output;
+            }
+
+            impl<T> [<GetRanged$type>]<0, 16, T> for [T; 16] {
+                #[inline(always)]
+                #[allow(trivial_numeric_casts)]
+                fn get_ranged(&self, index: $type<0, 16>) -> &<usize as SliceIndex<[T]>>::Output {
+                    unsafe { self.get_unchecked(index.get() as usize) }
+                }
+            }
+
+            impl<T> [<GetRangedMut$type>]<0, 16, T> for [T; 16] {
+                #[inline(always)]
+                #[allow(trivial_numeric_casts)]
+                fn get_ranged_mut(&mut self, index: $type<0, 16>) -> &mut <usize as SliceIndex<[T]>>::Output {
+                    unsafe { self.get_unchecked_mut(index.get() as usize) }
+                }
+            }
+
+            impl<T> [<GetRanged$type>]<0, 64, T> for [T; 64] {
+                #[inline(always)]
+                #[allow(trivial_numeric_casts)]
+                fn get_ranged(&self, index: $type<0, 64>) -> &<usize as SliceIndex<[T]>>::Output {
+                    unsafe { self.get_unchecked(index.get() as usize) }
+                }
+            }
+
+            impl<T> [<GetRangedMut$type>]<0, 64, T> for [T; 64] {
+                #[inline(always)]
+                #[allow(trivial_numeric_casts)]
+                fn get_ranged_mut(&mut self, index: $type<0, 64>) -> &mut <usize as SliceIndex<[T]>>::Output {
+                    unsafe { self.get_unchecked_mut(index.get() as usize) }
+                }
+            }
+
+            impl<T> [<GetRanged$type>]<0, 32, T> for [T; 32] {
+                #[inline(always)]
+                #[allow(trivial_numeric_casts)]
+                fn get_ranged(&self, index: $type<0, 32>) -> &<usize as SliceIndex<[T]>>::Output {
+                    unsafe { self.get_unchecked(index.get() as usize) }
+                }
+            }
+
+            impl<T> [<GetRangedMut$type>]<0, 32, T> for [T; 32] {
+                #[inline(always)]
+                #[allow(trivial_numeric_casts)]
+                fn get_ranged_mut(&mut self, index: $type<0, 32>) -> &mut <usize as SliceIndex<[T]>>::Output {
+                    unsafe { self.get_unchecked_mut(index.get() as usize) }
+                }
             }
         }
 
