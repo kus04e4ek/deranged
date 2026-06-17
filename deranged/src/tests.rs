@@ -1,8 +1,8 @@
 extern crate std;
 
 use core::hash::Hash;
-use std::format;
 use std::prelude::rust_2021::*;
+use std::{format, panic};
 
 use crate::{
     IntErrorKind, OptionRangedI128, OptionRangedI16, OptionRangedI32, OptionRangedI64,
@@ -203,6 +203,13 @@ macro_rules! tests {
             assert_eq!($t::<5, 10>::new_saturating(11), $t::<5, 10>::MAX);
             assert_eq!($t::<5, 10>::new_saturating(0), $t::<5, 10>::MIN);
             assert_eq!($t::<5, 10>::new_saturating(9), $t::<5, 10>::new_static::<9>());
+        )*}
+
+        #[test]
+        fn new_wrapping() {$(
+            assert_eq!($t::<5, 10>::new_wrapping(11), $t::<5, 10>::MIN);
+            assert_eq!($t::<5, 10>::new_wrapping(4), $t::<5, 10>::MAX);
+            assert_eq!($t::<5, 10>::new_wrapping(9), $t::<5, 10>::new_static::<9>());
         )*}
 
         #[test]
@@ -497,6 +504,18 @@ macro_rules! tests {
         }
 
         #[test]
+        fn overflowing_add() {$(
+            assert_eq!($t::<5, 10>::MAX.overflowing_add(0), ($t::<5, 10>::MAX, false));
+            assert_eq!($t::<5, 10>::MAX.overflowing_add(1), ($t::<5, 10>::MIN, true));
+        )*}
+
+        #[test]
+        fn overflowing_sub() {$(
+            assert_eq!($t::<5, 10>::MIN.overflowing_sub(0), ($t::<5, 10>::MIN, false));
+            assert_eq!($t::<5, 10>::MIN.overflowing_sub(1), ($t::<5, 10>::MAX, true));
+        )*}
+
+        #[test]
         fn saturating_sub() {$(
             assert_eq!($t::<5, 10>::MIN.saturating_sub(0), $t::<5, 10>::MIN);
             assert_eq!($t::<5, 10>::MIN.saturating_sub(1), $t::<5, 10>::MIN);
@@ -597,6 +616,9 @@ macro_rules! tests {
 
         #[test]
         fn from() {$(
+            assert_eq!(<$t::<0, 10> as From<bool>>::from(false).get(), 0);
+            assert_eq!(<$t::<0, 10> as From<bool>>::from(true).get(), 1);
+
             assert_eq!($inner::from($t::<5, 10>::MAX), 10);
             assert_eq!($inner::from($t::<5, 10>::MIN), 5);
 
@@ -622,6 +644,12 @@ macro_rules! tests {
             assert_eq!("4".parse::<$t<5, 10>>(), Err(ParseIntError { kind: IntErrorKind::NegOverflow }));
             assert_eq!("11".parse::<$t<5, 10>>(), Err(ParseIntError { kind: IntErrorKind::PosOverflow }));
             assert_eq!("".parse::<$t<5, 10>>(), Err(ParseIntError { kind: IntErrorKind::Empty }));
+        )*}
+
+        #[test]
+        fn into() {$(
+            assert_eq!(<$t::<0, 1> as Into<bool>>::into($t::<0, 1>::new_static::<0>()), false);
+            assert_eq!(<$t::<0, 1> as Into<bool>>::into($t::<0, 1>::new_static::<1>()), true);
         )*}
 
         #[cfg(feature = "serde")]
