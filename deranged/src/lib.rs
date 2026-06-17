@@ -18,6 +18,7 @@ use core::fmt;
 use core::hint::assert_unchecked;
 use core::num::{IntErrorKind, NonZero};
 use core::slice::SliceIndex;
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign};
 use core::str::FromStr;
 
 use paste::paste;
@@ -385,6 +386,17 @@ macro_rules! impl_ranged {
                 } else {
                     // Safety: The value is in range.
                     unsafe { Self::new_unchecked(value) }
+                }
+            }
+
+            /// Creates a ranged integer with the given value, wrapping if it is out of range.
+            #[inline]
+            pub const fn new_wrapping(value: $internal) -> Self {
+                const { assert!(MIN <= MAX); }
+                if value > MAX {
+                    Self::MAX.wrapping_add(value - MAX)
+                } else {
+                    Self::MAX.wrapping_sub(MAX - value)
                 }
             }
 
@@ -1078,6 +1090,54 @@ macro_rules! impl_ranged {
                     ) }
                 }
             }
+
+            /// Calculates self + rhs.
+            ///
+            /// Returns a tuple of the addition along with a boolean indicating whether an arithmetic overflow would occur.
+            /// If an overflow would have occurred then the wrapped value is returned.
+            #[must_use = "this returns the result of the operation, without modifying the original"]
+            #[inline]
+            pub const fn overflowing_add(self, rhs: $internal) -> (Self, bool) {
+                const { assert!(MIN <= MAX); }
+
+                // Forward to internal type's impl if same as type.
+                if MIN == $internal::MIN && MAX == $internal::MAX {
+                    let (res, overflow) = self.get().overflowing_add(rhs);
+
+                    // Safety: std's wrapping methods match ranged arithmetic when the range is the internal datatype's range.
+                    return (unsafe { Self::new_unchecked(res) }, overflow)
+                }
+
+                if let Some(res) = self.checked_add(rhs) {
+                    (res, false)
+                } else {
+                    (self.wrapping_add(rhs), true)
+                }
+            }
+
+            /// Calculates self - rhs.
+            ///
+            /// Returns a tuple of the subtraction along with a boolean indicating whether an arithmetic overflow would occur.
+            /// If an overflow would have occurred then the wrapped value is returned.
+            #[must_use = "this returns the result of the operation, without modifying the original"]
+            #[inline]
+            pub const fn overflowing_sub(self, rhs: $internal) -> (Self, bool) {
+                const { assert!(MIN <= MAX); }
+
+                // Forward to internal type's impl if same as type.
+                if MIN == $internal::MIN && MAX == $internal::MAX {
+                    let (res, overflow) = self.get().overflowing_sub(rhs);
+
+                    // Safety: std's wrapping methods match ranged arithmetic when the range is the internal datatype's range.
+                    return (unsafe { Self::new_unchecked(res) }, overflow)
+                }
+
+                if let Some(res) = self.checked_sub(rhs) {
+                    (res, false)
+                } else {
+                    (self.wrapping_sub(rhs), true)
+                }
+            }
         }
 
         impl<const MIN: $internal, const MAX: $internal> $optional_type<MIN, MAX> {
@@ -1403,6 +1463,93 @@ macro_rules! impl_ranged {
             }
         }
 
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitAnd for $type<MIN, MAX> {
+            type Output = Self;
+
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitand(self, other: Self) -> Self::Output {
+                const {
+                    assert!(MIN == u8::MIN as $internal);
+                    assert!(MAX == u8::MAX as $internal);
+                }
+
+                unsafe { Self::new_unchecked(self.get() & other.get()) }
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitAndAssign for $type<MIN, MAX> {
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitand_assign(&mut self, other: Self) {
+                *self = *self & other;
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitOr for $type<MIN, MAX> {
+            type Output = Self;
+
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitor(self, other: Self) -> Self::Output {
+                const {
+                    assert!(MIN == u8::MIN as $internal);
+                    assert!(MAX == u8::MAX as $internal);
+                }
+
+                unsafe { Self::new_unchecked(self.get() | other.get()) }
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitOrAssign for $type<MIN, MAX> {
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitor_assign(&mut self, other: Self) {
+                *self = *self | other;
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitXor for $type<MIN, MAX> {
+            type Output = Self;
+
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitxor(self, other: Self) -> Self::Output {
+                const {
+                    assert!(MIN == u8::MIN as $internal);
+                    assert!(MAX == u8::MAX as $internal);
+                }
+
+                unsafe { Self::new_unchecked(self.get() ^ other.get()) }
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitXorAssign for $type<MIN, MAX> {
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitxor_assign(&mut self, other: Self) {
+                *self = *self ^ other;
+            }
+        }
+
         impl<const MIN: $internal, const MAX: $internal> fmt::Binary for $type<MIN, MAX> {
             #[inline(always)]
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1609,6 +1756,33 @@ macro_rules! impl_ranged {
                 unsafe { $type::new_unchecked(value.get() as $internal) }
             }
         })+
+
+        impl<const MIN: $internal, const MAX: $internal> From<bool> for $type<MIN, MAX> {
+            #[inline(always)]
+            fn from(value: bool) -> Self {
+                const {
+                    assert!(MIN <= MAX);
+                    assert!(MIN <= 0, "false cannot be represented in the range");
+                    assert!(MAX >= 1, "true cannot be represented in the range");
+                }
+
+                // Safety: The range can fit both false and true.
+                unsafe { $type::new_unchecked(value as $internal) }
+            }
+        }
+
+        impl<const MIN: $internal, const MAX: $internal> Into<bool> for $type<MIN, MAX> {
+            #[inline(always)]
+            #[allow(unused_comparisons)]
+            fn into(self) -> bool {
+                const {
+                    assert!(MIN <= MAX);
+                    assert!(MIN >= 0 && MAX <= 1, "the range contains values not representable by bool");
+                }
+
+                *self.0 == 1
+            }
+        }
 
         #[cfg(feature = "serde")]
         impl<const MIN: $internal, const MAX: $internal> serde_core::Serialize for $type<MIN, MAX> {
