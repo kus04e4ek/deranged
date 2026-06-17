@@ -17,6 +17,7 @@ use core::error::Error;
 use core::fmt;
 use core::hint::assert_unchecked;
 use core::num::{IntErrorKind, NonZero};
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign};
 use core::str::FromStr;
 
 /// A macro to define a ranged integer with an automatically computed inner type.
@@ -1339,6 +1340,93 @@ macro_rules! impl_ranged {
                 } else {
                     self.inner().cmp(&other.inner())
                 }
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitAnd for $type<MIN, MAX> {
+            type Output = Self;
+
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitand(self, other: Self) -> Self::Output {
+                const {
+                    assert!(MIN == u8::MIN as $internal);
+                    assert!(MAX == u8::MAX as $internal);
+                }
+
+                unsafe { Self::new_unchecked(self.get() & other.get()) }
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitAndAssign for $type<MIN, MAX> {
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitand_assign(&mut self, other: Self) {
+                *self = *self & other;
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitOr for $type<MIN, MAX> {
+            type Output = Self;
+
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitor(self, other: Self) -> Self::Output {
+                const {
+                    assert!(MIN == u8::MIN as $internal);
+                    assert!(MAX == u8::MAX as $internal);
+                }
+
+                unsafe { Self::new_unchecked(self.get() | other.get()) }
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitOrAssign for $type<MIN, MAX> {
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitor_assign(&mut self, other: Self) {
+                *self = *self | other;
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitXor for $type<MIN, MAX> {
+            type Output = Self;
+
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitxor(self, other: Self) -> Self::Output {
+                const {
+                    assert!(MIN == u8::MIN as $internal);
+                    assert!(MAX == u8::MAX as $internal);
+                }
+
+                unsafe { Self::new_unchecked(self.get() ^ other.get()) }
+            }
+        }
+
+        impl<
+            const MIN: $internal,
+            const MAX: $internal,
+        > BitXorAssign for $type<MIN, MAX> {
+            #[inline(always)]
+            #[allow(trivial_numeric_casts)]
+            fn bitxor_assign(&mut self, other: Self) {
+                *self = *self ^ other;
             }
         }
 
